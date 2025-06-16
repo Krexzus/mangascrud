@@ -105,4 +105,31 @@ public class MangaController : ControllerBase
 
         return Ok(resultado);
     }
+
+    [HttpPut("{id}")]
+    public IActionResult Update(int id, MangaCreateDTO manga)
+    {
+        var entity = _mapper.Map<Manga>(manga);
+        entity.Id = id;
+        
+        _mangaService.Update(entity);
+        
+        var updatedManga = _mangaService.GetById(id);
+        if (updatedManga.Id <= 0)
+            return NotFound();
+            
+        var dto = _mapper.Map<MangaDTO>(updatedManga);
+        return Ok(dto);
+    }
+
+    [HttpDelete("{id}")]
+    public IActionResult Delete(int id)
+    {
+        var manga = _mangaService.GetById(id);
+        if (manga.Id <= 0)
+            return NotFound();
+
+        _mangaService.Delete(id);
+        return NoContent();
+    }
 } 
