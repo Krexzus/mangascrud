@@ -1,3 +1,5 @@
+using System;
+using System.Linq;
 using AutoMapper;
 using JaveragesLibrary.Domain.Dtos;
 using JaveragesLibrary.Domain.Entities;
@@ -10,8 +12,8 @@ public class ResponseMappingProfile : Profile
     {
         CreateMap<Manga, MangaDTO>()
             .ForMember(
-                dest => dest.PublicationYear,
-                opt => opt.MapFrom(src => src.PublicationDate.Date.Year)
+                dest => dest.Genres,
+                opt => opt.MapFrom(src => src.Genres.Select(g => g.Name))
             );
     }
 } 

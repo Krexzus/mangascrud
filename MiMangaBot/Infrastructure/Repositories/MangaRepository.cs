@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Linq;
 using Microsoft.EntityFrameworkCore;
 using JaveragesLibrary.Domain.Entities;
 using JaveragesLibrary.Infrastructure.Data;
@@ -13,19 +15,27 @@ public class MangaRepository
         _context = context;
     }
 
+    public IQueryable<Manga> GetQueryable()
+    {
+        return _context.Mangas.AsNoTracking();
+    }
+
     public IEnumerable<Manga> GetAll()
     {
-        return _context.Mangas.AsNoTracking().ToList();
+        return GetQueryable().Include(m => m.Genres).ToList();
     }
 
     public Manga GetById(int id)
     {
-        return _context.Mangas.FirstOrDefault(manga => manga.Id == id)
-                ?? new Manga
-                {
-                    Title = string.Empty,
-                    Author = string.Empty
-                };
+        return _context.Mangas
+            .Include(m => m.Genres)
+            .FirstOrDefault(manga => manga.Id == id)
+            ?? new Manga
+            {
+                Title = string.Empty,
+                Author = string.Empty,
+                Status = string.Empty
+            };
     }
 
     public void Add(Manga manga)

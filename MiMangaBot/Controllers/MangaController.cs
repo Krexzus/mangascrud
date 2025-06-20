@@ -1,14 +1,19 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 using AutoMapper;
 using JaveragesLibrary.Domain.Dtos;
 using JaveragesLibrary.Domain.Entities;
 using JaveragesLibrary.Services.Features.Mangas;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Linq;
 
 namespace JaveragesLibrary.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class MangaController : ControllerBase
 {
     private readonly MangaService _mangaService;
@@ -16,39 +21,55 @@ public class MangaController : ControllerBase
 
     public MangaController(MangaService mangaService, IMapper mapper)
     {
-        this._mangaService = mangaService;
-        this._mapper = mapper;
+        _mangaService = mangaService;
+        _mapper = mapper;
     }
 
-    [HttpGet]
+    /// <summary>
+    /// Obtiene todos los mangas sin paginación (no recomendado para grandes conjuntos de datos)
+    /// </summary>
+    [HttpGet("all")]
     public IActionResult GetAll()
     {
-        var mangas = _mangaService.GetAll();
-        var mangaDtos = _mapper.Map<IEnumerable<MangaDTO>>(mangas); 
-        
+        var mangaDtos = _mangaService.GetAll();
         return Ok(mangaDtos);
+    }
+
+    /// <summary>
+    /// Obtiene una lista paginada de mangas
+    /// </summary>
+    /// <param name="pageNumber">Número de página (por defecto: 1)</param>
+    /// <param name="pageSize">Tamaño de página (por defecto: 50, máximo: 100)</param>
+    [HttpGet]
+    public IActionResult GetPaginated([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 50)
+    {
+        // Validar y ajustar el tamaño de página
+        pageSize = Math.Min(Math.Max(1, pageSize), 100);
+        pageNumber = Math.Max(1, pageNumber);
+
+        var response = _mangaService.GetPaginated(pageNumber, pageSize);
+        return Ok(response);
     }
 
     [HttpGet("{id}")]
     public IActionResult GetById(int id)
     {
-        var manga = _mangaService.GetById(id);
-
-        if (manga.Id <= 0)
+        try
+        {
+            var manga = _mangaService.GetById(id);
+            return Ok(manga);
+        }
+        catch (KeyNotFoundException)
+        {
             return NotFound();
-
-        var dto = _mapper.Map<MangaDTO>(manga); 
-
-        return Ok(dto);
+        }
     }
 
     [HttpPost]
-    public IActionResult Add(MangaCreateDTO manga)
+    public async Task<IActionResult> Add(MangaCreateDTO manga)
     {
-        var entity = _mapper.Map<Manga>(manga);
-        _mangaService.Add(entity);
-
-        var dto = _mapper.Map<MangaDTO>(entity);
+        var entity = await _mangaService.Add(manga);
+        var dto = _mangaService.GetById(entity.Id);
         return CreatedAtAction(nameof(GetById), new { id = entity.Id }, dto);
     }
 
@@ -72,7 +93,7 @@ public class MangaController : ControllerBase
                                      .Select(g => new {
                                          titulo = g.Key,
                                          cantidad = g.Count(),
-                                         mangas = g.Select(m => new { m.Id, m.Title, m.Author })
+                                         mangas = g.Select(m => new { m.Id, m.Title, m.Author, m.Genres })
                                      })
                                      .ToList(),
             
@@ -81,7 +102,7 @@ public class MangaController : ControllerBase
                                       .Select(g => new {
                                           autor = g.Key,
                                           cantidad = g.Count(),
-                                          mangas = g.Select(m => new { m.Id, m.Title, m.Author })
+                                          mangas = g.Select(m => new { m.Id, m.Title, m.Author, m.Genres })
                                       })
                                       .ToList(),
             
@@ -91,7 +112,7 @@ public class MangaController : ControllerBase
                                                     titulo = g.Key.Title,
                                                     autor = g.Key.Author,
                                                     cantidad = g.Count(),
-                                                    mangas = g.Select(m => new { m.Id, m.Title, m.Author })
+                                                    mangas = g.Select(m => new { m.Id, m.Title, m.Author, m.Genres })
                                                 })
                                                 .ToList(),
 
@@ -104,5 +125,35 @@ public class MangaController : ControllerBase
         };
 
         return Ok(resultado);
+    }
+
+    [HttpPut("{id}")]
+    public async Task<IActionResult> Update(int id, MangaCreateDTO manga)
+    {
+        try
+        {
+            await _mangaService.Update(id, manga);
+            var updatedManga = _mangaService.GetById(id);
+            return Ok(updatedManga);
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
+        }
+    }
+
+    [HttpDelete("{id}")]
+    public IActionResult Delete(int id)
+    {
+        try
+        {
+            var manga = _mangaService.GetById(id);
+            _mangaService.Delete(id);
+            return NoContent();
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
+        }
     }
 } 
